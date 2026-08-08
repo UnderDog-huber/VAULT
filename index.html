@@ -307,6 +307,31 @@
         const escapeHtml = (str) => { return (String(str) || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); };
         const getDomain = (url) => { try { return new URL(url).hostname; } catch(e) { return "Link Externo"; } };
 
+        // Função para copiar textos com suporte a WebViews (WebIntoApp)
+        window.copyToClipboard = (text, event) => {
+            if(event) event.stopPropagation();
+            try {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.top = "-9999px";
+                textArea.style.left = "-9999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                if(successful) {
+                    showToast("Link copiado com sucesso!");
+                } else {
+                    showToast("Erro ao copiar link.", true);
+                }
+            } catch (err) {
+                console.error(err);
+                showToast("Erro ao copiar link.", true);
+            }
+        };
+
         const memoryStorage = {};
         const safeGet = (key) => { try { return localStorage.getItem(key) || memoryStorage[key]; } catch(e) { return memoryStorage[key]; } };
         const safeSet = (key, value) => { try { localStorage.setItem(key, value); } catch(e) { memoryStorage[key] = value; } };
@@ -539,9 +564,9 @@
                     const card = document.createElement('div');
                     card.className = 'vault-card';
                     card.innerHTML = `
-                        <div class="vault-thumb-wrapper" onclick="window.open('${escapeHtml(item.url)}', '_blank')">
+                        <div class="vault-thumb-wrapper" onclick="copyToClipboard('${escapeHtml(item.url)}', event)">
                             <img src="${escapeHtml(item.thumb)}" class="vault-thumb" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%25%22 height=%22100%25%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2327272a%22 stroke-width=%221%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22 ry=%222%22%3E%3C/rect%3E%3Ccircle cx=%228.5%22 cy=%228.5%22 r=%221.5%22%3E%3C/circle%3E%3Cpolyline points=%2221 15 16 10 5 21%22%3E%3C/polyline%3E%3C/svg%3E'; this.style.objectFit='contain';">
-                            <div class="play-overlay"><svg class="icon" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></div>
+                            <div class="play-overlay"><svg class="icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>
                         </div>
                         <div class="vault-info">
                             <div class="vault-title" title="${escapeHtml(title)}">${escapeHtml(title)}</div>
