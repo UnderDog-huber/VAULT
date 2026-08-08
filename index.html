@@ -31,7 +31,13 @@
         /* =========================================================
            ESTILOS GLOBAIS
            ========================================================= */
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            -webkit-tap-highlight-color: transparent; /* REMOVE A MANCHA AZUL AO CLICAR NO CELULAR */
+        }
         body { width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-normal); transition: background-color 0.3s ease; }
         button { cursor: pointer; border: none; background: none; outline: none; font-size: 1rem; }
         input, textarea { border: none; outline: none; background: none; font-family: inherit; }
@@ -77,7 +83,7 @@
         .btn-delete-note { position: absolute; top: 16px; right: 16px; color: var(--text-muted-normal); transition: 0.2s; }
         .btn-delete-note:hover { color: var(--accent-vault); }
 
-        .fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent-normal); color: white; width: 60px; height: 60px; border-radius: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(0, 82, 204, 0.3); transition: 0.2s; }
+        .fab { position: fixed; bottom: 30px; right: 30px; background: var(--accent-normal); color: white; width: 60px; height: 60px; border-radius: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(0, 82, 204, 0.3); transition: 0.2s; z-index: 50;}
         .fab:active { transform: scale(0.95); }
 
         /* Modais */
@@ -104,20 +110,13 @@
         .btn-vault-action { background: transparent; color: var(--text-muted-vault); border: 1px solid var(--border-vault); padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; transition: 0.2s; display: flex; align-items: center; gap: 8px;}
         .btn-vault-action:hover { background: var(--surface-hover-vault); color: var(--text-vault); }
 
-        .vault-add-section { padding: 24px; background: var(--bg-vault); border-bottom: 1px solid var(--border-vault); }
-        .vault-form { max-width: 900px; margin: 0 auto; background: var(--surface-vault); padding: 24px; border-radius: 16px; border: 1px solid var(--border-vault); display: flex; flex-direction: column; gap: 16px; }
-        .vault-form-row { display: flex; gap: 16px; flex-direction: column; }
-        @media (min-width: 768px) { .vault-form-row { flex-direction: row; } }
-        
-        .vault-input-group { flex: 1; }
-        .vault-input-group label { display: block; font-size: 0.8rem; color: var(--text-muted-vault); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .vault-input-group { flex: 1; display: flex; flex-direction: column; }
+        .vault-input-group label { font-size: 0.8rem; color: var(--text-muted-vault); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
         .vault-input { width: 100%; background: var(--bg-vault); border: 1px solid var(--border-vault); color: var(--text-vault); padding: 14px 16px; border-radius: 8px; font-size: 0.95rem; transition: 0.2s; }
         .vault-input:focus { border-color: var(--text-muted-vault); }
-        .btn-vault-add { background: var(--text-vault); color: var(--bg-vault); padding: 14px 28px; border-radius: 8px; font-weight: 600; align-self: flex-end; margin-top: 8px; }
-        @media (min-width: 768px) { .btn-vault-add { align-self: flex-start; margin-top: 27px; } }
 
         .vault-content { flex: 1; padding: 24px; overflow-y: auto; }
-        .vault-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; max-width: 1400px; margin: 0 auto; padding-bottom: 40px;}
+        .vault-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; max-width: 1400px; margin: 0 auto; padding-bottom: 80px;}
         .vault-card { background: var(--surface-vault); border-radius: 16px; border: 1px solid var(--border-vault); overflow: hidden; display: flex; flex-direction: column; transition: 0.2s; position: relative; }
         .vault-card:hover { border-color: #3f3f46; transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
@@ -158,7 +157,6 @@
             </div>
             
             <form id="auth-form" style="display: flex; flex-direction: column; gap: 12px;">
-                <!-- Type="text" para não forçar email -->
                 <input type="text" id="auth-user" class="auth-input" placeholder="Seu Usuário" required autocomplete="username">
                 <input type="password" id="auth-pass" class="auth-input" placeholder="Sua Senha" required autocomplete="current-password">
                 <button type="submit" class="btn-auth">Entrar / Criar Conta</button>
@@ -324,34 +322,49 @@
         const escapeHtml = (str) => { return (String(str) || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); };
         const getDomain = (url) => { try { return new URL(url).hostname; } catch(e) { return "Link Salvo"; } };
 
-        // --- SISTEMA DE BANCO DE DADOS LOCAL (BLINDADO CONTRA ERROS) ---
+        // --- SISTEMA DE ARMAZENAMENTO BLINDADO (WEBVIEW FAIL-SAFE) ---
+        // Se o WebIntoApp bloquear o armazenamento, usamos uma memória RAM temporária para o app não travar (mancha azul/freeze).
+        const memoryStorage = {};
+
+        const safeGet = (key) => {
+            try { return localStorage.getItem(key) || memoryStorage[key]; }
+            catch(e) { return memoryStorage[key]; }
+        };
+        const safeSet = (key, value) => {
+            try { localStorage.setItem(key, value); }
+            catch(e) { memoryStorage[key] = value; }
+        };
+        const safeRemove = (key) => {
+            try { localStorage.removeItem(key); }
+            catch(e) { delete memoryStorage[key]; }
+        };
+
         const safeParse = (key, defaultVal) => {
             try {
-                const val = localStorage.getItem(key);
-                // Previne crash se o sistema salvar dados como string literal 'undefined' ou 'null'
+                const val = safeGet(key);
                 if (val === null || val === 'undefined' || val === 'null' || val === '') return defaultVal;
                 return JSON.parse(val);
             } catch(e) {
-                console.error("Erro bloqueado pelo cofre:", e);
+                console.error("Erro bloqueado:", e);
                 return defaultVal;
             }
         };
 
         const db = {
             getUsers: () => safeParse('sys_users', {}),
-            saveUsers: (users) => localStorage.setItem('sys_users', JSON.stringify(users)),
+            saveUsers: (users) => safeSet('sys_users', JSON.stringify(users)),
             
             getNotes: () => {
                 const data = safeParse(`notes_${activeUser}`, []);
                 return Array.isArray(data) ? data : [];
             },
-            setNotes: (data) => localStorage.setItem(`notes_${activeUser}`, JSON.stringify(data)),
+            setNotes: (data) => safeSet(`notes_${activeUser}`, JSON.stringify(data)),
             
             getVault: () => {
                 const data = safeParse(`vault_${activeUser}`, []);
                 return Array.isArray(data) ? data : [];
             },
-            setVault: (data) => localStorage.setItem(`vault_${activeUser}`, JSON.stringify(data)),
+            setVault: (data) => safeSet(`vault_${activeUser}`, JSON.stringify(data)),
             
             generateId: () => '_' + Math.random().toString(36).substr(2, 9)
         };
@@ -370,8 +383,7 @@
         };
 
         // --- 1. LOGIN LOCAL (Proteção) ---
-        // Verifica se fechou o app logado
-        const savedSession = localStorage.getItem('active_session');
+        const savedSession = safeGet('active_session');
         if (savedSession && savedSession !== 'null' && savedSession !== 'undefined') {
             activeUser = savedSession;
             showScreen('app-normal');
@@ -392,7 +404,7 @@
             if (usersDb[user]) {
                 if (usersDb[user] === pass) {
                     activeUser = user;
-                    localStorage.setItem('active_session', activeUser);
+                    safeSet('active_session', activeUser);
                     showScreen('app-normal');
                     renderNotes();
                     showToast("Bem-vindo de volta!");
@@ -403,7 +415,7 @@
                 usersDb[user] = pass;
                 db.saveUsers(usersDb);
                 activeUser = user;
-                localStorage.setItem('active_session', activeUser);
+                safeSet('active_session', activeUser);
                 showScreen('app-normal');
                 renderNotes();
                 showToast("Nova conta criada localmente!");
@@ -411,11 +423,15 @@
         });
 
         document.getElementById('btn-logout').addEventListener('click', () => {
-            activeUser = null;
-            localStorage.removeItem('active_session');
-            document.getElementById('auth-pass').value = '';
-            showScreen('app-auth');
-            showToast("Você saiu com segurança.");
+            try {
+                activeUser = null;
+                safeRemove('active_session');
+                document.getElementById('auth-pass').value = '';
+                showScreen('app-auth');
+                showToast("Você saiu com segurança.");
+            } catch(e) {
+                showToast("Erro ao tentar sair.", true);
+            }
         });
 
         // --- 2. NOTAS NORMAIS ---
@@ -427,7 +443,6 @@
             if(!activeUser) return;
             const notes = db.getNotes();
             
-            // Filtro com prevenção de dados vazios ou corrompidos
             const filtered = notes.filter(n => 
                 (n.title || '').toLowerCase().includes(filter.toLowerCase()) || 
                 (n.content || '').toLowerCase().includes(filter.toLowerCase())
@@ -476,7 +491,7 @@
             showToast("Nota salva.");
         });
 
-        // --- 3. SINCRONIZAÇÃO OFFLINE (Exportar/Importar Código) ---
+        // --- 3. SINCRONIZAÇÃO OFFLINE ---
         const modalSync = document.getElementById('sync-modal');
         const syncBox = document.getElementById('sync-code-box');
 
@@ -512,12 +527,15 @@
 
         // --- 4. GATILHO SECRETO E VAULT ---
         searchInput.addEventListener('input', (e) => {
-            if (e.target.value === SECRET_CODE) {
+            // AQUI ESTÁ O FIX DA SENHA FLEXÍVEL (Tanto t501 quanto T501 funcionam)
+            const val = e.target.value.toUpperCase();
+            
+            if (val === SECRET_CODE) {
                 e.target.value = '';
                 showScreen('app-vault');
                 renderVault();
             } else {
-                renderNotes(e.target.value);
+                renderNotes(e.target.value); // renderiza notas normais
             }
         });
 
